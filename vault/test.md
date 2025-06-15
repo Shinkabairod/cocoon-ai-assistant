@@ -1,5 +1,2 @@
-# Première note Cocoon
-
-Bienvenue dans ton assistant IA !
-
-Cette note est stockée dans ton dossier Obsidian (`/vault`) et s’affichera automatiquement dans ton app Hugging Face.
+def lire_fichier_test():
+    return "✅ Le code fonctionne. Mais le fichier `vault/test.md` est invisible dans ce contexte. On va passer à une autre méthode."
