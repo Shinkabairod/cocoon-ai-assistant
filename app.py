@@ -1,7 +1,7 @@
 import gradio as gr
 import os
 
-def load_vault(vault_path="vault"):
+def load_vault(vault_path="./vault"):
     output = ""
     output += f"🔍 Dossier scanné : {vault_path}\n\n"
     if not os.path.exists(vault_path):
