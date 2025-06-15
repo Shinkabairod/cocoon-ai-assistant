@@ -1,23 +1,18 @@
 import gradio as gr
 from utils import load_vault
 
-documents = load_vault()
-
-def show_documents():
+def test_vault():
+    documents = load_vault()
     if not documents:
-        return "Aucun fichier trouvé dans le dossier /vault."
-    output = ""
-    for doc in documents:
-        output += f"### {doc['filename']}\n"
-        output += doc["text"][:500] + "\n\n---\n\n"
-    return output
+        return "⚠️ Aucun fichier trouvé dans /vault/"
+    return f"✅ {len(documents)} fichier(s) trouvé(s) :\\n\\n" + "\\n".join([doc["filename"] for doc in documents])
 
 iface = gr.Interface(
-    fn=show_documents,
+    fn=test_vault,
     inputs=[],
-    outputs=gr.Markdown(),
-    title="Cocoon Vault Preview",
-    description="Aperçu des fichiers présents dans le dossier Obsidian `/vault/`."
+    outputs="text",
+    title="Test Lecture Vault",
+    description="Ce test affiche les fichiers trouvés dans ton dossier `/vault`."
 )
 
 iface.launch()
