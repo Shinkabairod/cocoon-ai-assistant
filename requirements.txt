@@ -1,1 +1,4 @@
 gradio
+chromadb
+InstructorEmbedding
+sentence-transformers
