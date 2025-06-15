@@ -1,17 +1,23 @@
-
 import gradio as gr
-import os
+from utils import load_vault
 
-def assistant(query):
-    # Placeholder logic (à remplacer par ton moteur RAG)
-    return f"Tu as demandé : '{query}'. (La réponse de l'IA sera ici.)"
+documents = load_vault()
+
+def show_documents():
+    if not documents:
+        return "Aucun fichier trouvé dans le dossier /vault."
+    output = ""
+    for doc in documents:
+        output += f"### {doc['filename']}\n"
+        output += doc["text"][:500] + "\n\n---\n\n"
+    return output
 
 iface = gr.Interface(
-    fn=assistant,
-    inputs=gr.Textbox(label="Pose ta question"),
-    outputs=gr.Textbox(label="Réponse de l'assistant IA"),
-    title="Cocoon AI Assistant",
-    description="Assistant IA personnel basé sur tes ressources Obsidian.",
+    fn=show_documents,
+    inputs=[],
+    outputs=gr.Markdown(),
+    title="Cocoon Vault Preview",
+    description="Aperçu des fichiers présents dans le dossier Obsidian `/vault/`."
 )
 
 iface.launch()
