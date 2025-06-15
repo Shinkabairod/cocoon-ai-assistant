@@ -1,21 +1,30 @@
-import gradio as gr
 
-def lire_fichier_test():
-    try:
-        with open("./vault/test.md", "r", encoding="utf-8") as f:
-            contenu = f.read()
-            return f"✅ Fichier trouvé !\n\n🧠 Contenu :\n{contenu}"
-    except FileNotFoundError:
-        return "❌ Le fichier `vault/test.md` n'existe pas ou n'est pas visible."
-    except Exception as e:
-        return f"⚠️ Erreur : {str(e)}"
+import gradio as gr
+from InstructorEmbedding import INSTRUCTOR
+from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
+
+model = INSTRUCTOR("hkunlp/instructor-base")
+
+documents = load_documents("vault")
+texts, embeddings, metadatas = embed_documents(documents, model)
+collection = create_vector_db(texts, embeddings, metadatas)
+
+def ask_question(question):
+    if not question.strip():
+        return "❗️ Veuillez poser une question."
+    results = query_db(collection, model, question)
+    if not results["documents"]:
+        return "🤷 Aucun résultat trouvé."
+
+    context = "\n\n".join(results["documents"][0])
+    return f"📚 **Contexte extrait** :\n{context}\n\n🤖 **Réponse hypothétique** :\n{question}... (à compléter avec un LLM si besoin)"
 
 iface = gr.Interface(
-    fn=lire_fichier_test,
-    inputs=[],
-    outputs="text",
-    title="🧪 Test Lecture Unique",
-    description="Essaie de lire `vault/test.md` en lecture brute."
+    fn=ask_question,
+    inputs=gr.Textbox(placeholder="Pose ta question ici..."),
+    outputs="markdown",
+    title="Cocoon AI – Question sur ton contenu",
+    description="Pose une question à partir de tes fichiers Obsidian (`vault/`) – l'IA cherchera et répondra avec le contexte."
 )
 
 iface.launch()
