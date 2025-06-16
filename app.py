@@ -1,10 +1,7 @@
 
 import gradio as gr
-from InstructorEmbedding import INSTRUCTOR
-from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
-
-model = INSTRUCTOR("hkunlp/instructor-base")
-
+from sentence_transformers import SentenceTransformer
+model = SentenceTransformer("all-MiniLM-L6-v2")
 documents = load_documents("vault")
 texts, embeddings, metadatas = embed_documents(documents, model)
 collection = create_vector_db(texts, embeddings, metadatas)
