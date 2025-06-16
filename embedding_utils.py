@@ -2,7 +2,6 @@
 import os
 import chromadb
 from chromadb.config import Settings
-from InstructorEmbedding import INSTRUCTOR
 from sentence_transformers.util import cos_sim
 
 def load_documents(path="vault"):
