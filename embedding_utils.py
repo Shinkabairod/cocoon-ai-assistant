@@ -1,7 +1,5 @@
-
 import os
 import chromadb
-from chromadb.config import Settings
 from sentence_transformers.util import cos_sim
 
 def load_documents(path="vault"):
@@ -43,11 +41,21 @@ def embed_documents(docs, model):
 
 def create_vector_db(texts, embeddings, metadatas, persist_dir="chromadb"):
     os.makedirs(persist_dir, exist_ok=True)
-    client = chromadb.PersistentClient(path=persist_dir)    if "docs" in client.list_collections():
+    client = chromadb.PersistentClient(path=persist_dir)
+
+    # Supprimer la collection existante si elle existe
+    existing_collections = [col.name for col in client.list_collections()]
+    if "docs" in existing_collections:
         client.delete_collection("docs")
+
     collection = client.create_collection(name="docs")
     for i, (text, emb, meta) in enumerate(zip(texts, embeddings, metadatas)):
-        collection.add(documents=[text], embeddings=[emb.tolist()], metadatas=[meta], ids=[f"id_{i}"])
+        collection.add(
+            documents=[text],
+            embeddings=[emb.tolist()],
+            metadatas=[meta],
+            ids=[f"id_{i}"]
+        )
     return collection
 
 def query_db(collection, model, question, top_k=3):
