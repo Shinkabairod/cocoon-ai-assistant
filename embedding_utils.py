@@ -43,8 +43,7 @@ def embed_documents(docs, model):
 
 def create_vector_db(texts, embeddings, metadatas, persist_dir="chromadb"):
     os.makedirs(persist_dir, exist_ok=True)
-    client = chromadb.Client(Settings(chroma_db_impl="duckdb+parquet", persist_directory=persist_dir))
-    if "docs" in client.list_collections():
+    client = chromadb.PersistentClient(path=persist_dir)    if "docs" in client.list_collections():
         client.delete_collection("docs")
     collection = client.create_collection(name="docs")
     for i, (text, emb, meta) in enumerate(zip(texts, embeddings, metadatas)):
