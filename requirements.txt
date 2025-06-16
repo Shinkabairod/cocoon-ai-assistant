@@ -1,3 +1,4 @@
 gradio
 chromadb
 sentence-transformers
+openai
