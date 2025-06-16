@@ -1,3 +1,6 @@
+USER_ID = "user_001"
+VAULT_PATH = f"vaults/{USER_ID}"
+documents = load_documents(VAULT_PATH)
 import gradio as gr
 from sentence_transformers import SentenceTransformer
 from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
