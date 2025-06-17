@@ -1,7 +1,10 @@
 import os
-os.makedirs("./.cache/huggingface", exist_ok=True)
-os.environ["TRANSFORMERS_CACHE"] = "./.cache"
-os.environ["HF_HOME"] = "./.cache"
+import tempfile
+
+cache_dir = tempfile.gettempdir() + "/hf_cache"
+os.makedirs(cache_dir, exist_ok=True)
+os.environ["TRANSFORMERS_CACHE"] = cache_dir
+os.environ["HF_HOME"] = cache_dir
 
 from fastapi import FastAPI
 from pydantic import BaseModel
