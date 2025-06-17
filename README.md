@@ -3,10 +3,11 @@ title: Cocoon AI Assistant
 emoji: 🧠
 colorFrom: blue
 colorTo: pink
-sdk: gradio
+sdk: docker
 sdk_version: 4.25.0
 app_file: app.py
 pinned: false
+license: mit
 ---
 
 # Cocoon AI Assistant
