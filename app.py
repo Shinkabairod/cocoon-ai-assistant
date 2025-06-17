@@ -1,9 +1,14 @@
 import os
-from fastapi import FastAPI, Request
+os.makedirs("./.cache/huggingface", exist_ok=True)
+os.environ["TRANSFORMERS_CACHE"] = "./.cache"
+os.environ["HF_HOME"] = "./.cache"
+
+from fastapi import FastAPI
 from pydantic import BaseModel
 from fastapi.responses import JSONResponse
 from sentence_transformers import SentenceTransformer
 import openai
+
 from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
 
 # Config
@@ -11,8 +16,8 @@ VAULT_PATH = "vaults/user_001"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
-# Load user documents once at startup
-model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", cache_folder="./cache")
+# Load documents and initialize vector DB
+model = SentenceTransformer("all-MiniLM-L6-v2")
 documents = load_documents(VAULT_PATH)
 texts, embeddings, metadatas = embed_documents(documents, model)
 collection = create_vector_db(texts, embeddings, metadatas)
@@ -34,13 +39,13 @@ async def ask(req: AskRequest):
     question = req.question.strip()
     if not question:
         return JSONResponse(status_code=400, content={"error": "Question cannot be empty."})
-    
+
     results = query_db(collection, model, question)
     if not results["documents"]:
         return {"answer": "No relevant context found in user notes."}
-    
+
     context = "\n\n".join(results["documents"][0])
-    
+
     try:
         response = openai.ChatCompletion.create(
             model="gpt-4",
@@ -55,7 +60,7 @@ async def ask(req: AskRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint: Update/Create user note
+# Endpoint: Save or update user notes
 @app.post("/note")
 async def create_or_update_note(req: NoteRequest):
     title = req.title.strip()
@@ -63,7 +68,7 @@ async def create_or_update_note(req: NoteRequest):
 
     if not title or not content:
         return JSONResponse(status_code=400, content={"error": "Title and content are required."})
-    
+
     filepath = f"{VAULT_PATH}/{title}.md"
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
