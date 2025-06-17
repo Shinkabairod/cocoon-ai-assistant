@@ -20,6 +20,9 @@ VAULT_PATH = "vaults/user_001"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
+def get_user_vault_path(user_id: str) -> str:
+    return f"vaults/user_{user_id}"
+
 # Load documents and initialize vector DB
 model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
 documents = load_documents(VAULT_PATH)
@@ -31,9 +34,11 @@ app = FastAPI()
 
 # Request models
 class AskRequest(BaseModel):
+    user_id: str
     question: str
 
 class NoteRequest(BaseModel):
+    user_id: str
     title: str
     content: str
 
@@ -47,13 +52,19 @@ async def ask(req: AskRequest):
     if not question:
         return JSONResponse(status_code=400, content={"error": "Question cannot be empty."})
 
-    results = query_db(collection, model, question)
-    if not results["documents"]:
-        return {"answer": "No relevant context found in user notes."}
-
-    context = "\n\n".join(results["documents"][0])
+    user_vault = get_user_vault_path(req.user_id)
 
     try:
+        documents = load_documents(user_vault)
+        texts, embeddings, metadatas = embed_documents(documents, model)
+        collection = create_vector_db(texts, embeddings, metadatas)
+
+        results = query_db(collection, model, question)
+        if not results["documents"]:
+            return {"answer": "No relevant context found in your notes."}
+
+        context = "\n\n".join(results["documents"][0])
+
         response = openai.ChatCompletion.create(
             model="gpt-4",
             messages=[
@@ -64,6 +75,7 @@ async def ask(req: AskRequest):
         )
         answer = response.choices[0].message["content"]
         return {"answer": answer}
+
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
@@ -76,12 +88,14 @@ async def create_or_update_note(req: NoteRequest):
     if not title or not content:
         return JSONResponse(status_code=400, content={"error": "Title and content are required."})
 
-    filepath = f"{VAULT_PATH}/{title}.md"
+    user_vault = get_user_vault_path(req.user_id)
+    filepath = f"{user_vault}/{title}.md"
+
     os.makedirs(os.path.dirname(filepath), exist_ok=True)
     with open(filepath, "w", encoding="utf-8") as f:
         f.write(content)
 
-    return {"status": f"Note '{title}' saved successfully."}
+    return {"status": f"Note '{title}' saved successfully for user {req.user_id}."}
 
 # Endpoint: Generate a script
 @app.post("/script")
