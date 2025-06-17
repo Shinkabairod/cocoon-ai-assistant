@@ -1,6 +1,7 @@
 import os
 import tempfile
 
+# Create a temporary directory for Hugging Face model cache
 cache_dir = tempfile.gettempdir() + "/hf_cache"
 os.makedirs(cache_dir, exist_ok=True)
 os.environ["TRANSFORMERS_CACHE"] = cache_dir
@@ -14,13 +15,13 @@ import openai
 
 from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
 
-# Config
+# Configuration
 VAULT_PATH = "vaults/user_001"
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
 # Load documents and initialize vector DB
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
 documents = load_documents(VAULT_PATH)
 texts, embeddings, metadatas = embed_documents(documents, model)
 collection = create_vector_db(texts, embeddings, metadatas)
@@ -28,7 +29,7 @@ collection = create_vector_db(texts, embeddings, metadatas)
 # FastAPI app
 app = FastAPI()
 
-# Request Models
+# Request models
 class AskRequest(BaseModel):
     question: str
 
@@ -63,7 +64,7 @@ async def ask(req: AskRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint: Save or update user notes
+# Endpoint: Save or update a note
 @app.post("/note")
 async def create_or_update_note(req: NoteRequest):
     title = req.title.strip()
