@@ -12,7 +12,7 @@ OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
 
 # Load user documents once at startup
-model = SentenceTransformer("all-MiniLM-L6-v2")
+model = SentenceTransformer("sentence-transformers/all-MiniLM-L6-v2", cache_folder="./cache")
 documents = load_documents(VAULT_PATH)
 texts, embeddings, metadatas = embed_documents(documents, model)
 collection = create_vector_db(texts, embeddings, metadatas)
