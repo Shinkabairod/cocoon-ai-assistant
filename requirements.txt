@@ -1,3 +1,5 @@
-gradio
-chromadb
+fastapi
+uvicorn
+openai
 sentence-transformers
+chromadb
