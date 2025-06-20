@@ -114,7 +114,7 @@ async def save_profile(req: ProfileRequest):
         # Save as JSON for reference
         profile_path = f"{path}/user_profile.json"
         with open(profile_path, "w", encoding="utf-8") as f:
-            json.dump(req.profile, f, indent=2)
+            json.dump(req.profile_data, f, indent=2)
 
         # ➕ Write to Obsidian structure
         write_profile_to_obsidian(req.user_id, req.profile)
