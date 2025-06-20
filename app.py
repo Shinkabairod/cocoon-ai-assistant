@@ -1,6 +1,4 @@
-from profile_writer import write_profile_to_obsidian
 import os
-os.makedirs("/data/vaults", exist_ok=True)
 import json
 import tempfile
 import openai
@@ -9,7 +7,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from supabase import create_client
-from utils import get_user_vault_path
+
+from profile_writer import write_profile_to_obsidian
 from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
 
 # === Hugging Face Cache Setup ===
@@ -36,10 +35,9 @@ app = FastAPI()
 
 # === Utils ===
 def get_user_vault_path(user_id: str) -> str:
-    return f"/data/vaults/user_{user_id}"
-    user_path = os.path.join(base_path, f"user_{user_id}")
-    os.makedirs(user_path, exist_ok=True)
-    return user_path
+    base_path = f"/data/vaults/user_{user_id}"
+    os.makedirs(base_path, exist_ok=True)
+    return base_path
 
 # === Request Models ===
 class AskRequest(BaseModel):
@@ -58,12 +56,11 @@ class ProfileRequest(BaseModel):
 class GenerateRequest(BaseModel):
     prompt: str
 
-# === Base route (optional root check) ===
+# === Routes ===
 @app.get("/")
 def root():
     return {"message": "API running"}
 
-# === Healthcheck ===
 @app.get("/ping")
 def ping():
     return {"pong": "ok"}
@@ -72,11 +69,9 @@ def ping():
 async def test_connection():
     return {"status": "ok", "message": "Connected successfully"}
 
-# === Main Endpoints ===
 @app.post("/ask")
 async def ask(req: AskRequest):
     try:
-        print(f"[ASK] Question: {req.question}")
         user_vault = get_user_vault_path(req.user_id)
         docs = load_documents(user_vault)
         texts, embeddings, metadatas = embed_documents(docs, model)
@@ -103,7 +98,6 @@ async def ask(req: AskRequest):
 async def save_note(req: NoteRequest):
     try:
         path = get_user_vault_path(req.user_id)
-        os.makedirs(path, exist_ok=True)
         with open(f"{path}/{req.title}.md", "w", encoding="utf-8") as f:
             f.write(req.content)
         return {"status": "Note saved."}
@@ -114,16 +108,10 @@ async def save_note(req: NoteRequest):
 async def save_profile(req: ProfileRequest):
     try:
         path = get_user_vault_path(req.user_id)
-        os.makedirs(path, exist_ok=True)
-
-        # Save as JSON for reference
         profile_path = f"{path}/user_profile.json"
         with open(profile_path, "w", encoding="utf-8") as f:
             json.dump(req.profile_data, f, indent=2)
-
-        # ➕ Write to Obsidian structure
         write_profile_to_obsidian(req.user_id, req.profile_data)
-
         return {"status": "Profile saved & Obsidian updated."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -132,7 +120,6 @@ async def save_profile(req: ProfileRequest):
 async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     try:
         path = get_user_vault_path(user_id)
-        os.makedirs(path, exist_ok=True)
         with open(os.path.join(path, file.filename), "wb") as f:
             f.write(await file.read())
         return {"status": "File uploaded."}
@@ -144,18 +131,14 @@ async def sync_from_obsidian(user_id: str):
     try:
         path = get_user_vault_path(user_id)
         profile_path = os.path.join(path, "Profile/user_profile.md")
-
         if not os.path.exists(profile_path):
             return JSONResponse(status_code=404, content={"error": "Profile not found."})
-
         with open(profile_path, "r", encoding="utf-8") as f:
             content = f.read()
-
         return {"status": "Profile loaded.", "content": content}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Generation Endpoints ===
 @app.post("/script")
 async def generate_script(req: GenerateRequest):
     return await generate_with_role(req, "You are a creative screenwriter.")
