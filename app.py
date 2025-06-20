@@ -133,6 +133,23 @@ async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
         return {"status": "File uploaded."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+    
+@app.post("/sync_from_obsidian")
+async def sync_from_obsidian(user_id: str):
+    try:
+        path = get_user_vault_path(user_id)
+        profile_path = os.path.join(path, "Profile/user_profile.md")
+
+        if not os.path.exists(profile_path):
+            return JSONResponse(status_code=404, content={"error": "Profile not found."})
+
+        with open(profile_path, "r", encoding="utf-8") as f:
+            content = f.read()
+
+        # (optionnel) transformer le markdown en JSON
+        return {"status": "Profile loaded.", "content": content}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 # === Generation Endpoints ===
 @app.post("/script")
