@@ -7,7 +7,7 @@ def write_file(user_path, relative_path, content):
         f.write(content.strip() + "\n")
 
 def write_profile_to_obsidian(user_id: str, data: dict):
-    base_path = f"vaults/user_{user_id}"
+    base_path = f"/data/vaults/user_{user_id}"  # ✅ Correction ici
     os.makedirs(base_path, exist_ok=True)
 
     # === Profile Folder ===
