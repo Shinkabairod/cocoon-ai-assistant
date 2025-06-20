@@ -145,4 +145,5 @@ async def generate_with_role(req: GenerateRequest, role: str):
         )
         return {"response": response.choices[0].message.content}
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+
+return JSONResponse(status_code=500, content={"error": str(e)})
