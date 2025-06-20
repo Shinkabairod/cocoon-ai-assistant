@@ -48,7 +48,7 @@ class NoteRequest(BaseModel):
 
 class ProfileRequest(BaseModel):
     user_id: str
-    profile: dict  # <-- Correction ici
+    profile_data: dict  # <-- Correction ici
 
 class GenerateRequest(BaseModel):
     prompt: str
