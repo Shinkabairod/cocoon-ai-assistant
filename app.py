@@ -19,13 +19,12 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# === Validation ===
 if not SUPABASE_URL or not SUPABASE_KEY:
     raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY environment variables.")
 if not OPENAI_API_KEY:
     raise ValueError("Missing OPENAI_API_KEY environment variable.")
 
-# === Initialize Services ===
+# === Init services ===
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 openai.api_key = OPENAI_API_KEY
 model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
@@ -52,31 +51,35 @@ class ProfileRequest(BaseModel):
 class GenerateRequest(BaseModel):
     prompt: str
 
-# === Test Endpoint ===
+# === Healthcheck ===
+@app.get("/ping")
+def ping():
+    return {"pong": "ok"}
+
 @app.post("/test")
-async def test_connection(_: dict):
+async def test_connection():
     return {"status": "ok", "message": "Connected successfully"}
 
-# === Ask ===
+# === Main Endpoints ===
 @app.post("/ask")
 async def ask(req: AskRequest):
     try:
+        print(f"[ASK] Question: {req.question}")
         user_vault = get_user_vault_path(req.user_id)
         docs = load_documents(user_vault)
         texts, embeddings, metadatas = embed_documents(docs, model)
         collection = create_vector_db(texts, embeddings, metadatas)
-
         results = query_db(collection, model, req.question)
+
         if not results["documents"]:
             return {"answer": "No relevant context found."}
 
         context = "\n\n".join(results["documents"][0])
-
         response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
                 {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion:\n{req.question}"},
+                {"role": "user", "content": f"Context:\n{context}\n\nQuestion:\n{req.question}"}
             ],
             temperature=0.7
         )
@@ -84,7 +87,6 @@ async def ask(req: AskRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Save Note ===
 @app.post("/note")
 async def save_note(req: NoteRequest):
     try:
@@ -96,7 +98,6 @@ async def save_note(req: NoteRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Save Profile ===
 @app.post("/profile")
 async def save_profile(req: ProfileRequest):
     try:
@@ -108,7 +109,6 @@ async def save_profile(req: ProfileRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Upload Obsidian ===
 @app.post("/obsidian")
 async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     try:
@@ -120,24 +120,25 @@ async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Generate ===
+# === Generation Endpoints ===
 @app.post("/script")
-@app.post("/concepts")
-@app.post("/ideas")
-async def generate(req: GenerateRequest):
-    try:
-        prompt_type = {
-            "/script": "You are a creative screenwriter.",
-            "/concepts": "You are an innovation engine.",
-            "/ideas": "You are a content strategist."
-        }
-        last_path = str(app.router.routes[-1].path)
-        system_msg = prompt_type.get(last_path, "You are a helpful assistant.")
+async def generate_script(req: GenerateRequest):
+    return await generate_with_role(req, "You are a creative screenwriter.")
 
+@app.post("/concepts")
+async def generate_concepts(req: GenerateRequest):
+    return await generate_with_role(req, "You are an innovation engine.")
+
+@app.post("/ideas")
+async def generate_ideas(req: GenerateRequest):
+    return await generate_with_role(req, "You are a content strategist.")
+
+async def generate_with_role(req: GenerateRequest, role: str):
+    try:
         response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": system_msg},
+                {"role": "system", "content": role},
                 {"role": "user", "content": req.prompt}
             ],
             temperature=0.9
@@ -145,8 +146,3 @@ async def generate(req: GenerateRequest):
         return {"response": response.choices[0].message.content}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-
-# === Ping (Healthcheck) ===
-@app.get("/ping")
-def ping():
-    return {"pong": "ok"}
