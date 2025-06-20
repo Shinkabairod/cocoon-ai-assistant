@@ -51,6 +51,11 @@ class ProfileRequest(BaseModel):
 class GenerateRequest(BaseModel):
     prompt: str
 
+# === Base route (root) ===
+@app.get("/")
+def root():
+    return {"message": "API running"}
+
 # === Healthcheck ===
 @app.get("/ping")
 def ping():
