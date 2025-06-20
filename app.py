@@ -1,5 +1,6 @@
 from profile_writer import write_profile_to_obsidian
 import os
+os.makedirs("/data/vaults", exist_ok=True)
 import json
 import tempfile
 import openai
@@ -35,7 +36,7 @@ app = FastAPI()
 
 # === Utils ===
 def get_user_vault_path(user_id: str) -> str:
-    base_path = "/data/vaults"
+    return f"/data/vaults/user_{user_id}"
     user_path = os.path.join(base_path, f"user_{user_id}")
     os.makedirs(user_path, exist_ok=True)
     return user_path
