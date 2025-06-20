@@ -47,12 +47,12 @@ class NoteRequest(BaseModel):
 
 class ProfileRequest(BaseModel):
     user_id: str
-    profile_data: dict
+    profile: dict  # <-- Correction ici
 
 class GenerateRequest(BaseModel):
     prompt: str
 
-# === Base route (root) ===
+# === Base route (optional root check) ===
 @app.get("/")
 def root():
     return {"message": "API running"}
@@ -111,7 +111,7 @@ async def save_profile(req: ProfileRequest):
         os.makedirs(path, exist_ok=True)
         profile_path = f"{path}/user_profile.json"
         with open(profile_path, "w", encoding="utf-8") as f:
-            json.dump(req.profile_data, f, indent=2)
+            json.dump(req.profile, f, indent=2)  # <-- Correction ici
         return {"status": "Profile saved."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
