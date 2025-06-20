@@ -1,5 +1,8 @@
+numpy==1.26.4
 fastapi
 uvicorn
-openai
+openai>=1.0.0
 sentence-transformers
-chromadb
+chromadb>=0.4.22
+supabase==1.0.3
+python-multipart
