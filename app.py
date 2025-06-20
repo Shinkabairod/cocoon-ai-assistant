@@ -1,4 +1,5 @@
 import os
+import json
 import tempfile
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
@@ -46,7 +47,7 @@ class NoteRequest(BaseModel):
 
 class ProfileRequest(BaseModel):
     user_id: str
-    profile: str
+    profile_data: dict
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -108,8 +109,9 @@ async def save_profile(req: ProfileRequest):
     try:
         path = get_user_vault_path(req.user_id)
         os.makedirs(path, exist_ok=True)
-        with open(f"{path}/user_profile.md", "w", encoding="utf-8") as f:
-            f.write(req.profile)
+        profile_path = f"{path}/user_profile.json"
+        with open(profile_path, "w", encoding="utf-8") as f:
+            json.dump(req.profile_data, f, indent=2)
         return {"status": "Profile saved."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
