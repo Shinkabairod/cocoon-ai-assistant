@@ -1,4 +1,3 @@
-
 import os
 
 def load_vault(vault_path="vault"):
@@ -14,3 +13,6 @@ def load_vault(vault_path="vault"):
                         "text": text
                     })
     return documents
+
+def get_user_vault_path(user_id: str) -> str:
+    return f"vaults/user_{user_id}"

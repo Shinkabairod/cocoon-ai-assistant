@@ -2,12 +2,13 @@ from profile_writer import write_profile_to_obsidian
 import os
 import json
 import tempfile
+import openai
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
 from supabase import create_client
-import openai
+from utils import get_user_vault_path
 from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
 
 # === Hugging Face Cache Setup ===

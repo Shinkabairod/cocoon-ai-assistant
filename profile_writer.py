@@ -1,5 +1,4 @@
 import os
-from app import get_user_vault_path  # 🔥 Utilise le chemin correct (dans /data)
 
 def write_file(user_path, relative_path, content):
     full_path = os.path.join(user_path, relative_path)
@@ -8,7 +7,8 @@ def write_file(user_path, relative_path, content):
         f.write(content.strip() + "\n")
 
 def write_profile_to_obsidian(user_id: str, data: dict):
-    base_path = get_user_vault_path(user_id)  # ✅ Utilise le bon chemin Hugging Face
+    base_path = f"vaults/user_{user_id}"
+    os.makedirs(base_path, exist_ok=True)
 
     # === Profile Folder ===
     write_file(base_path, "Profile/user_profile.md", f"""
@@ -16,14 +16,14 @@ def write_profile_to_obsidian(user_id: str, data: dict):
 - Experience Level: {data.get("experienceLevel", "")}
 - Main Goal: {data.get("contentGoal", "")}
 - Location: {data.get("country", "")}, {data.get("city", "")}
-    """)
+""")
 
     write_file(base_path, "Profile/business_profile.md", f"""
 # 🏢 Business Profile
 - Type: {data.get("businessType", "")}
 - Description: {data.get("businessDescription", "")}
 - Niche: {data.get("niche", "")}
-    """)
+""")
 
     write_file(base_path, "Profile/creator_personality.md", "# ✨ Creator Personality\nTo be discovered...")
 
@@ -32,7 +32,7 @@ def write_profile_to_obsidian(user_id: str, data: dict):
 # 🎯 Content Goals
 - Goal: {data.get("contentGoal", "")}
 - Niche: {data.get("niche", "")}
-    """)
+""")
 
     write_file(base_path, "Content_Strategy/platforms_and_audience.md", f"""
 # 📣 Platforms & Audience
@@ -40,13 +40,13 @@ def write_profile_to_obsidian(user_id: str, data: dict):
 - Target Generation: {data.get("targetGeneration", "")}
 - Time Available: {data.get("timeAvailable", "")}
 - Monetization Intent: {data.get("monetizationIntent", "")}
-    """)
+""")
 
     write_file(base_path, "Content_Strategy/content_types_and_niche.md", f"""
 # 📦 Content Types & Niche
 - Types: {", ".join(data.get("contentTypes", []))}
 - Challenges: {data.get("mainChallenges", "")}
-    """)
+""")
 
     write_file(base_path, "Content_Strategy/social_accounts.md", "# 🔗 Social Accounts\nAdd your accounts here.")
 
@@ -54,12 +54,12 @@ def write_profile_to_obsidian(user_id: str, data: dict):
     write_file(base_path, "Resources_and_Skills/current_challenges.md", f"""
 # ❗ Current Challenges
 {data.get("mainChallenges", "")}
-    """)
+""")
 
     write_file(base_path, "Resources_and_Skills/available_resources.md", f"""
 # 🛠️ Available Resources
 {data.get("resources", "")}
-    """)
+""")
 
     write_file(base_path, "Resources_and_Skills/learning_preferences.md", "# 📚 Learning Preferences\nTo define.")
 
@@ -90,4 +90,4 @@ This file summarizes the user context.
 
 ## Notes
 Automatically generated. Use for AI context.
-    """)
+""")
