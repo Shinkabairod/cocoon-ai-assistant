@@ -34,7 +34,10 @@ app = FastAPI()
 
 # === Utils ===
 def get_user_vault_path(user_id: str) -> str:
-    return f"vaults/user_{user_id}"
+    base_path = "/data/vaults"
+    user_path = os.path.join(base_path, f"user_{user_id}")
+    os.makedirs(user_path, exist_ok=True)
+    return user_path
 
 # === Request Models ===
 class AskRequest(BaseModel):
