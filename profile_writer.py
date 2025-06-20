@@ -1,4 +1,5 @@
 import os
+from app import get_user_vault_path  # 🔥 Utilise le chemin correct (dans /data)
 
 def write_file(user_path, relative_path, content):
     full_path = os.path.join(user_path, relative_path)
@@ -7,8 +8,7 @@ def write_file(user_path, relative_path, content):
         f.write(content.strip() + "\n")
 
 def write_profile_to_obsidian(user_id: str, data: dict):
-    base_path = f"vaults/user_{user_id}"
-    os.makedirs(base_path, exist_ok=True)
+    base_path = get_user_vault_path(user_id)  # ✅ Utilise le bon chemin Hugging Face
 
     # === Profile Folder ===
     write_file(base_path, "Profile/user_profile.md", f"""
