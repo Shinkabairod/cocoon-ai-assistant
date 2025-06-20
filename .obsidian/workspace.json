@@ -169,8 +169,10 @@
       "yet-another-obsidian-synchronizer:YAOS": false
     }
   },
-  "active": "60d7938f8ab58ae3",
+  "active": "d3eb24a4563a65a9",
   "lastOpenFiles": [
+    "profile_writer.py",
+    "Python profile_writer.py",
     "app.py.sb-d9df406f-LoD4E6",
     "vaults/user_001/user_profile.md",
     "vaults/user_001/exemple_note.md",

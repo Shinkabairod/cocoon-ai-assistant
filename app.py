@@ -1,3 +1,4 @@
+from profile_writer import write_profile_to_obsidian
 import os
 import json
 import tempfile
@@ -109,10 +110,16 @@ async def save_profile(req: ProfileRequest):
     try:
         path = get_user_vault_path(req.user_id)
         os.makedirs(path, exist_ok=True)
+
+        # Save as JSON for reference
         profile_path = f"{path}/user_profile.json"
         with open(profile_path, "w", encoding="utf-8") as f:
-            json.dump(req.profile, f, indent=2)  # <-- Correction ici
-        return {"status": "Profile saved."}
+            json.dump(req.profile, f, indent=2)
+
+        # ➕ Write to Obsidian structure
+        write_profile_to_obsidian(req.user_id, req.profile)
+
+        return {"status": "Profile saved & Obsidian updated."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
