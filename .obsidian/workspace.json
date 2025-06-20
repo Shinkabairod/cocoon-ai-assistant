@@ -13,12 +13,12 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "vaults/user_001/exemple_note.md",
+                "file": "vault/test.md",
                 "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "exemple_note"
+              "title": "test"
             }
           }
         ]
@@ -171,8 +171,8 @@
   },
   "active": "60d7938f8ab58ae3",
   "lastOpenFiles": [
-    "Dockerfile",
     "vaults/user_001/user_profile.md",
-    "vaults/user_001/exemple_note.md"
+    "vaults/user_001/exemple_note.md",
+    "Dockerfile"
   ]
 }
