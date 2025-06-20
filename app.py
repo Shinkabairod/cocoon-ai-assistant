@@ -1,38 +1,41 @@
 import os
 import tempfile
+from fastapi import FastAPI, UploadFile, File
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel
+from sentence_transformers import SentenceTransformer
+from supabase import create_client
+import openai
+from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
 
-# Setup Hugging Face cache in a writable temp directory
+# === Hugging Face Cache Setup ===
 cache_dir = tempfile.gettempdir() + "/hf_cache"
 os.makedirs(cache_dir, exist_ok=True)
 os.environ["TRANSFORMERS_CACHE"] = cache_dir
 os.environ["HF_HOME"] = cache_dir
 
-from fastapi import FastAPI
-from pydantic import BaseModel
-from fastapi.responses import JSONResponse
-from sentence_transformers import SentenceTransformer
-import openai
-
-from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
-
-# Configuration
-VAULT_PATH = "vaults/user_001"
+# === Environment Variables ===
+SUPABASE_URL = os.getenv("SUPABASE_URL")
+SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-openai.api_key = OPENAI_API_KEY
 
+# === Validation ===
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY environment variables.")
+if not OPENAI_API_KEY:
+    raise ValueError("Missing OPENAI_API_KEY environment variable.")
+
+# === Initialize Services ===
+supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
+openai.api_key = OPENAI_API_KEY
+model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
+app = FastAPI()
+
+# === Utils ===
 def get_user_vault_path(user_id: str) -> str:
     return f"vaults/user_{user_id}"
 
-# Load documents and initialize vector DB
-model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
-documents = load_documents(VAULT_PATH)
-texts, embeddings, metadatas = embed_documents(documents, model)
-collection = create_vector_db(texts, embeddings, metadatas)
-
-# FastAPI app
-app = FastAPI()
-
-# Request models
+# === Request Models ===
 class AskRequest(BaseModel):
     user_id: str
     question: str
@@ -42,105 +45,108 @@ class NoteRequest(BaseModel):
     title: str
     content: str
 
+class ProfileRequest(BaseModel):
+    user_id: str
+    profile: str
+
 class GenerateRequest(BaseModel):
     prompt: str
 
-# Endpoint: Ask assistant
+# === Test Endpoint ===
+@app.post("/test")
+async def test_connection(_: dict):
+    return {"status": "ok", "message": "Connected successfully"}
+
+# === Ask ===
 @app.post("/ask")
 async def ask(req: AskRequest):
-    question = req.question.strip()
-    if not question:
-        return JSONResponse(status_code=400, content={"error": "Question cannot be empty."})
-
-    user_vault = get_user_vault_path(req.user_id)
-
     try:
-        documents = load_documents(user_vault)
-        texts, embeddings, metadatas = embed_documents(documents, model)
+        user_vault = get_user_vault_path(req.user_id)
+        docs = load_documents(user_vault)
+        texts, embeddings, metadatas = embed_documents(docs, model)
         collection = create_vector_db(texts, embeddings, metadatas)
 
-        results = query_db(collection, model, question)
+        results = query_db(collection, model, req.question)
         if not results["documents"]:
-            return {"answer": "No relevant context found in your notes."}
+            return {"answer": "No relevant context found."}
 
         context = "\n\n".join(results["documents"][0])
 
-        response = openai.ChatCompletion.create(
+        response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are a helpful personal assistant."},
-                {"role": "user", "content": f"Context:\n{context}\n\nQuestion:\n{question}"}
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": f"Context:\n{context}\n\nQuestion:\n{req.question}"},
             ],
             temperature=0.7
         )
-        answer = response.choices[0].message["content"]
-        return {"answer": answer}
-
+        return {"answer": response.choices[0].message.content}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint: Save or update a note
+# === Save Note ===
 @app.post("/note")
-async def create_or_update_note(req: NoteRequest):
-    title = req.title.strip()
-    content = req.content.strip()
+async def save_note(req: NoteRequest):
+    try:
+        path = get_user_vault_path(req.user_id)
+        os.makedirs(path, exist_ok=True)
+        with open(f"{path}/{req.title}.md", "w", encoding="utf-8") as f:
+            f.write(req.content)
+        return {"status": "Note saved."}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-    if not title or not content:
-        return JSONResponse(status_code=400, content={"error": "Title and content are required."})
+# === Save Profile ===
+@app.post("/profile")
+async def save_profile(req: ProfileRequest):
+    try:
+        path = get_user_vault_path(req.user_id)
+        os.makedirs(path, exist_ok=True)
+        with open(f"{path}/user_profile.md", "w", encoding="utf-8") as f:
+            f.write(req.profile)
+        return {"status": "Profile saved."}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-    user_vault = get_user_vault_path(req.user_id)
-    filepath = f"{user_vault}/{title}.md"
+# === Upload Obsidian ===
+@app.post("/obsidian")
+async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
+    try:
+        path = get_user_vault_path(user_id)
+        os.makedirs(path, exist_ok=True)
+        with open(os.path.join(path, file.filename), "wb") as f:
+            f.write(await file.read())
+        return {"status": "File uploaded."}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
-    os.makedirs(os.path.dirname(filepath), exist_ok=True)
-    with open(filepath, "w", encoding="utf-8") as f:
-        f.write(content)
-
-    return {"status": f"Note '{title}' saved successfully for user {req.user_id}."}
-
-# Endpoint: Generate a script
+# === Generate ===
 @app.post("/script")
-async def generate_script(req: GenerateRequest):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a creative screenwriter. Generate a script based on the following user prompt."},
-                {"role": "user", "content": req.prompt}
-            ],
-            temperature=0.8
-        )
-        return {"script": response.choices[0].message["content"]}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
-
-# Endpoint: Generate creative concepts
 @app.post("/concepts")
-async def generate_concepts(req: GenerateRequest):
+@app.post("/ideas")
+async def generate(req: GenerateRequest):
     try:
-        response = openai.ChatCompletion.create(
+        prompt_type = {
+            "/script": "You are a creative screenwriter.",
+            "/concepts": "You are an innovation engine.",
+            "/ideas": "You are a content strategist."
+        }
+        last_path = str(app.router.routes[-1].path)
+        system_msg = prompt_type.get(last_path, "You are a helpful assistant.")
+
+        response = openai.chat.completions.create(
             model="gpt-4",
             messages=[
-                {"role": "system", "content": "You are an idea generation engine. Based on the prompt, generate innovative project or product concepts."},
+                {"role": "system", "content": system_msg},
                 {"role": "user", "content": req.prompt}
             ],
             temperature=0.9
         )
-        return {"concepts": response.choices[0].message["content"]}
+        return {"response": response.choices[0].message.content}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# Endpoint: Generate content ideas
-@app.post("/ideas")
-async def generate_ideas(req: GenerateRequest):
-    try:
-        response = openai.ChatCompletion.create(
-            model="gpt-4",
-            messages=[
-                {"role": "system", "content": "You are a social content strategist. Generate original content ideas based on the user input."},
-                {"role": "user", "content": req.prompt}
-            ],
-            temperature=0.9
-        )
-        return {"ideas": response.choices[0].message["content"]}
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+# === Ping (Healthcheck) ===
+@app.get("/ping")
+def ping():
+    return {"pong": "ok"}
