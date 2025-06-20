@@ -48,7 +48,7 @@ class NoteRequest(BaseModel):
 
 class ProfileRequest(BaseModel):
     user_id: str
-    profile_data: dict  # <-- Correction ici
+    profile_data: dict
 
 class GenerateRequest(BaseModel):
     prompt: str
@@ -117,7 +117,7 @@ async def save_profile(req: ProfileRequest):
             json.dump(req.profile_data, f, indent=2)
 
         # ➕ Write to Obsidian structure
-        write_profile_to_obsidian(req.user_id, req.profile)
+        write_profile_to_obsidian(req.user_id, req.profile_data)
 
         return {"status": "Profile saved & Obsidian updated."}
     except Exception as e:
@@ -133,7 +133,7 @@ async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
         return {"status": "File uploaded."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
-    
+
 @app.post("/sync_from_obsidian")
 async def sync_from_obsidian(user_id: str):
     try:
@@ -146,7 +146,6 @@ async def sync_from_obsidian(user_id: str):
         with open(profile_path, "r", encoding="utf-8") as f:
             content = f.read()
 
-        # (optionnel) transformer le markdown en JSON
         return {"status": "Profile loaded.", "content": content}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
