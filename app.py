@@ -34,7 +34,7 @@ app = FastAPI()
 
 # === Utils ===
 def get_user_vault_path(user_id: str) -> str:
-    base_path = "vaults"  # Chemin local dans le repo Hugging Face
+    base_path = os.path.join(tempfile.gettempdir(), "vaults")
     user_path = os.path.join(base_path, f"user_{user_id}")
     os.makedirs(user_path, exist_ok=True)
     return user_path
