@@ -180,7 +180,7 @@ async def generate_with_role(req: GenerateRequest, role: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
     
-    @app.get("/debug/list_user_files")
+@app.get("/debug/list_user_files")
 def list_user_files(user_id: str):
     path = os.path.join("vaults", f"user_{user_id}")
     if not os.path.exists(path):
