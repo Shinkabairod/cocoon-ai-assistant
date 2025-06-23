@@ -1,36 +1,42 @@
-from dotenv import load_dotenv
-load_dotenv()
-
 import os
-print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
 import tempfile
+from pathlib import Path
+from dotenv import load_dotenv
 from supabase import create_client
+
+# === Load .env depuis le dossier racine du projet ===
+env_path = Path(__file__).resolve().parent / ".env"
+load_dotenv(dotenv_path=env_path)
 
 # === Supabase Init ===
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
+
+if not SUPABASE_URL or not SUPABASE_KEY:
+    raise ValueError("Missing SUPABASE_URL or SUPABASE_KEY in .env")
+
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
+# === Helpers ===
 def write_file(user_id, user_path, relative_path, content):
-    # Write locally
     full_path = os.path.join(user_path, relative_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
     content = content.strip() + "\n"
+
     with open(full_path, "w", encoding="utf-8") as f:
         f.write(content)
 
-    # Write to Supabase
     supabase_client.table("vault_files").upsert({
         "user_id": user_id,
         "path": relative_path,
         "content": content
     }).execute()
 
+# === Main Function ===
 def write_profile_to_obsidian(user_id: str, data: dict, base_path=None):
     if base_path is None:
         base_path = os.path.join(tempfile.gettempdir(), "vaults", f"user_{user_id}")
     os.makedirs(base_path, exist_ok=True)
-    print(f"[WRITE] Creating Obsidian structure for user: {user_id} at {base_path}")
 
     # === Profile Folder ===
     write_file(user_id, base_path, "Profile/user_profile.md", f"""
