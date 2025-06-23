@@ -110,6 +110,35 @@ async def save_note(req: NoteRequest):
         return {"status": "Note saved."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
+    
+@app.post("/add_resource")
+async def add_resource(
+    user_id: str = Form(...),
+    title: str = Form(...),
+    link: str = Form(...),
+    resource_type: str = Form(...)
+):
+    try:
+        safe_title = title.replace(" ", "_").lower()
+        file_path = f"Resources_and_Skills/resources/{safe_title}.md"
+        content = f"# 🔗 {title}\n\nType: {resource_type}\n\nLink: {link}"
+
+        vault_path = get_user_vault_path(user_id)
+        full_path = os.path.join(vault_path, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content.strip())
+
+        supabase_client.table("vault_files").upsert({
+            "user_id": user_id,
+            "path": file_path,
+            "content": content.strip()
+        }).execute()
+
+        return {"status": "Resource added", "file": file_path}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
 
 @app.post("/profile")
 async def save_profile(req: ProfileRequest):
