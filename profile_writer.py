@@ -7,7 +7,7 @@ def write_file(user_path, relative_path, content):
         f.write(content.strip() + "\n")
 
 def write_profile_to_obsidian(user_id: str, data: dict):
-    base_path = os.path.join("vaults", f"user_{user_id}")
+    base_path = os.path.join("data", "vaults", f"user_{user_id}")
     os.makedirs(base_path, exist_ok=True)
     print(f"[WRITE] Creating Obsidian structure for user: {user_id}")
 
@@ -28,7 +28,6 @@ def write_profile_to_obsidian(user_id: str, data: dict):
 
     write_file(base_path, "Profile/creator_personality.md", "# ✨ Creator Personality\nTo be discovered...")
 
-    # === Content Strategy ===
     write_file(base_path, "Content_Strategy/content_goals.md", f"""
 # 🎯 Content Goals
 - Goal: {data.get("contentGoal", "")}
@@ -51,7 +50,6 @@ def write_profile_to_obsidian(user_id: str, data: dict):
 
     write_file(base_path, "Content_Strategy/social_accounts.md", "# 🔗 Social Accounts\nAdd your accounts here.")
 
-    # === Resources & Skills ===
     write_file(base_path, "Resources_and_Skills/current_challenges.md", f"""
 # ❗ Current Challenges
 {data.get("mainChallenges", "")}
@@ -63,17 +61,11 @@ def write_profile_to_obsidian(user_id: str, data: dict):
 """)
 
     write_file(base_path, "Resources_and_Skills/learning_preferences.md", "# 📚 Learning Preferences\nTo define.")
-
     write_file(base_path, "Resources_and_Skills/existing_skills.md", "# 💡 Existing Skills\nList them here.")
-
-    # === Goals & Metrics ===
     write_file(base_path, "Goals_and_Metrics/impact_goals.md", "# 🌍 Impact Goals\nTo define.")
-
     write_file(base_path, "Goals_and_Metrics/success_metrics.md", "# 📈 Success Metrics\nTo define.")
-
     write_file(base_path, "Goals_and_Metrics/monetization_strategy.md", "# 💰 Monetization Strategy\nTo define.")
 
-    # === AI Context ===
     write_file(base_path, "AI_Context/onboarding_summary.md", f"""
 # 🤖 AI Onboarding Summary
 This file summarizes the user context.
