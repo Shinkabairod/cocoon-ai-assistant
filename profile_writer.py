@@ -1,23 +1,25 @@
 import os
+import tempfile
 from supabase import create_client
-import json
 
+# === Supabase Init ===
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def write_file(user_path, relative_path, content):
+def write_file(user_id, user_path, relative_path, content):
+    # Write locally
     full_path = os.path.join(user_path, relative_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
+    content = content.strip() + "\n"
     with open(full_path, "w", encoding="utf-8") as f:
-        f.write(content.strip() + "\n")
-    return relative_path, content.strip()
+        f.write(content)
 
-    # Stocker aussi dans Supabase (table "vault_files")
+    # Write to Supabase
     supabase_client.table("vault_files").upsert({
         "user_id": user_id,
         "path": relative_path,
-        "content": content.strip()
+        "content": content
     }).execute()
 
 def write_profile_to_obsidian(user_id: str, data: dict, base_path=None):
