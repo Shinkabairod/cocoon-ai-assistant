@@ -1,5 +1,3 @@
-# === app.py ===
-
 from profile_writer import write_profile_to_obsidian
 import os
 import json
@@ -13,7 +11,7 @@ from supabase import create_client
 from embedding_utils import load_documents, embed_documents, create_vector_db, query_db
 
 # === Hugging Face Cache Setup ===
-cache_dir = tempfile.gettempdir() + "/hf_cache"
+cache_dir = os.path.join(tempfile.gettempdir(), "hf_cache")
 os.makedirs(cache_dir, exist_ok=True)
 os.environ["TRANSFORMERS_CACHE"] = cache_dir
 os.environ["HF_HOME"] = cache_dir
@@ -34,7 +32,7 @@ openai.api_key = OPENAI_API_KEY
 model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
 app = FastAPI()
 
-# === Utils ===
+# === Vault Path Helper ===
 def get_user_vault_path(user_id: str) -> str:
     base_path = os.path.join(tempfile.gettempdir(), "vaults")
     user_path = os.path.join(base_path, f"user_{user_id}")
@@ -71,6 +69,7 @@ def ping():
 async def test_connection():
     return {"status": "ok", "message": "Connected successfully"}
 
+# === Ask endpoint ===
 @app.post("/ask")
 async def ask(req: AskRequest):
     try:
@@ -93,37 +92,35 @@ async def ask(req: AskRequest):
             temperature=0.7
         )
         return {"answer": response.choices[0].message.content}
-
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# === Save note ===
 @app.post("/note")
 async def save_note(req: NoteRequest):
     try:
         path = get_user_vault_path(req.user_id)
-        with open(f"{path}/{req.title}.md", "w", encoding="utf-8") as f:
+        with open(os.path.join(path, f"{req.title}.md"), "w", encoding="utf-8") as f:
             f.write(req.content)
         return {"status": "Note saved."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# === Save profile ===
 @app.post("/profile")
 async def save_profile(req: ProfileRequest):
     try:
         path = get_user_vault_path(req.user_id)
-
-        # Save raw JSON
-        profile_path = os.path.join(path, "user_profile.json")
-        with open(profile_path, "w", encoding="utf-8") as f:
+        with open(os.path.join(path, "user_profile.json"), "w", encoding="utf-8") as f:
             json.dump(req.profile_data, f, indent=2)
 
-        # Write Obsidian files
         write_profile_to_obsidian(req.user_id, req.profile_data)
 
         return {"status": "Profile saved & Obsidian updated."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# === Upload file ===
 @app.post("/obsidian")
 async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     try:
@@ -134,6 +131,7 @@ async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# === Sync from file ===
 @app.post("/sync_from_obsidian")
 async def sync_from_obsidian(user_id: str):
     try:
@@ -150,6 +148,7 @@ async def sync_from_obsidian(user_id: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# === Generate with role ===
 @app.post("/script")
 async def generate_script(req: GenerateRequest):
     return await generate_with_role(req, "You are a creative screenwriter.")
@@ -176,6 +175,7 @@ async def generate_with_role(req: GenerateRequest, role: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
+# === Debug route ===
 @app.get("/debug/list_user_files")
 def list_user_files(user_id: str = Query(...)):
     path = os.path.join(tempfile.gettempdir(), "vaults", f"user_{user_id}")
@@ -188,8 +188,4 @@ def list_user_files(user_id: str = Query(...)):
             rel_path = os.path.relpath(os.path.join(root, name), path)
             files.append(rel_path)
 
-    return {
-        "user_id": user_id,
-        "files": files,
-        "message": f"{len(files)} files found."
-    }
+    return {"user_id": user_id, "files": files, "message": f"{len(files)} files found."}

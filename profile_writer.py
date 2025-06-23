@@ -8,6 +8,7 @@ def write_file(user_path, relative_path, content):
         f.write(content.strip() + "\n")
 
 def write_profile_to_obsidian(user_id: str, data: dict):
+    # ✅ Utilise un chemin temporaire valide pour Hugging Face Spaces
     base_temp_dir = tempfile.gettempdir()
     base_path = os.path.join(base_temp_dir, "vaults", f"user_{user_id}")
     os.makedirs(base_path, exist_ok=True)
