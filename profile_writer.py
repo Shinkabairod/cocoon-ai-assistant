@@ -1,7 +1,9 @@
-import os
-import tempfile
 from dotenv import load_dotenv
 load_dotenv()
+
+import os
+print("SUPABASE_URL:", os.getenv("SUPABASE_URL"))
+import tempfile
 from supabase import create_client
 
 # === Supabase Init ===
