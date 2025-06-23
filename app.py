@@ -3,6 +3,8 @@ import os
 import json
 import tempfile
 import openai
+from dotenv import load_dotenv
+load_dotenv()
 from fastapi import FastAPI, UploadFile, File, Query, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
