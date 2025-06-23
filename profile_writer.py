@@ -1,5 +1,4 @@
 import os
-import tempfile
 
 def write_file(user_path, relative_path, content):
     full_path = os.path.join(user_path, relative_path)
@@ -7,10 +6,9 @@ def write_file(user_path, relative_path, content):
     with open(full_path, "w", encoding="utf-8") as f:
         f.write(content.strip() + "\n")
 
-def write_profile_to_obsidian(user_id: str, data: dict):
-    # ✅ Utilise un chemin temporaire valide pour Hugging Face Spaces
-    base_temp_dir = tempfile.gettempdir()
-    base_path = os.path.join(base_temp_dir, "vaults", f"user_{user_id}")
+def write_profile_to_obsidian(user_id: str, data: dict, base_path=None):
+    if base_path is None:
+        base_path = os.path.join("/data", "vaults", f"user_{user_id}")
     os.makedirs(base_path, exist_ok=True)
     print(f"[WRITE] Creating Obsidian structure for user: {user_id} at {base_path}")
 

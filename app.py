@@ -3,7 +3,7 @@ import os
 import json
 import tempfile
 import openai
-from fastapi import FastAPI, UploadFile, File, Query
+from fastapi import FastAPI, UploadFile, File, Query, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sentence_transformers import SentenceTransformer
@@ -69,7 +69,6 @@ def ping():
 async def test_connection():
     return {"status": "ok", "message": "Connected successfully"}
 
-# === Ask endpoint ===
 @app.post("/ask")
 async def ask(req: AskRequest):
     try:
@@ -95,7 +94,6 @@ async def ask(req: AskRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Save note ===
 @app.post("/note")
 async def save_note(req: NoteRequest):
     try:
@@ -106,7 +104,6 @@ async def save_note(req: NoteRequest):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Save profile ===
 @app.post("/profile")
 async def save_profile(req: ProfileRequest):
     try:
@@ -115,12 +112,10 @@ async def save_profile(req: ProfileRequest):
             json.dump(req.profile_data, f, indent=2)
 
         write_profile_to_obsidian(req.user_id, req.profile_data)
-
         return {"status": "Profile saved & Obsidian updated."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Upload file ===
 @app.post("/obsidian")
 async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     try:
@@ -131,7 +126,6 @@ async def upload_obsidian_file(user_id: str, file: UploadFile = File(...)):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Sync from file ===
 @app.post("/sync_from_obsidian")
 async def sync_from_obsidian(user_id: str):
     try:
@@ -148,7 +142,6 @@ async def sync_from_obsidian(user_id: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Generate with role ===
 @app.post("/script")
 async def generate_script(req: GenerateRequest):
     return await generate_with_role(req, "You are a creative screenwriter.")
@@ -175,17 +168,38 @@ async def generate_with_role(req: GenerateRequest, role: str):
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
 
-# === Debug route ===
-@app.get("/debug/list_user_files")
-def list_user_files(user_id: str = Query(...)):
-    path = os.path.join(tempfile.gettempdir(), "vaults", f"user_{user_id}")
-    if not os.path.exists(path):
-        return {"error": f"User path {path} not found"}
+@app.post("/update_file")
+async def update_file(
+    user_id: str = Form(...),
+    file_path: str = Form(...),
+    new_content: str = Form(...)
+):
+    try:
+        vault_path = get_user_vault_path(user_id)
+        full_path = os.path.join(vault_path, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-    files = []
-    for root, _, filenames in os.walk(path):
-        for name in filenames:
-            rel_path = os.path.relpath(os.path.join(root, name), path)
-            files.append(rel_path)
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(new_content.strip())
 
-    return {"user_id": user_id, "files": files, "message": f"{len(files)} files found."}
+        supabase_client.table("vault_files").upsert({
+            "user_id": user_id,
+            "path": file_path,
+            "content": new_content.strip()
+        }).execute()
+
+        return {"status": "File updated successfully", "file": file_path}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
+
+@app.post("/add_resource")
+async def add_resource(
+    user_id: str = Form(...),
+    title: str = Form(...),
+    link: str = Form(...),
+    resource_type: str = Form(...)
+):
+    try:
+        safe_title = title.replace(" ", "_").lower()
+        file_path = f"Resources_and_Skills/resources/{safe_title}.md"
+        content = f"# 
