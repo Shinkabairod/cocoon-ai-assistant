@@ -6,12 +6,12 @@ SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
 
-def write_file(user_id, user_path, relative_path, content):
+def write_file(user_path, relative_path, content):
     full_path = os.path.join(user_path, relative_path)
     os.makedirs(os.path.dirname(full_path), exist_ok=True)
-    
     with open(full_path, "w", encoding="utf-8") as f:
         f.write(content.strip() + "\n")
+    return relative_path, content.strip()
 
     # Stocker aussi dans Supabase (table "vault_files")
     supabase_client.table("vault_files").upsert({

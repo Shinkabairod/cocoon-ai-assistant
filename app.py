@@ -111,7 +111,15 @@ async def save_profile(req: ProfileRequest):
         with open(os.path.join(path, "user_profile.json"), "w", encoding="utf-8") as f:
             json.dump(req.profile_data, f, indent=2)
 
-        write_profile_to_obsidian(req.user_id, req.profile_data)
+        vault_path, files_written = write_profile_to_obsidian(req.user_id, req.profile_data)
+
+        for rel_path, content in files_written:
+            supabase_client.table("vault_files").upsert({
+                "user_id": req.user_id,
+                "path": rel_path,
+                "content": content
+            }).execute()
+
         return {"status": "Profile saved & Obsidian updated."}
     except Exception as e:
         return JSONResponse(status_code=500, content={"error": str(e)})
@@ -202,7 +210,7 @@ async def add_resource(
     try:
         safe_title = title.replace(" ", "_").lower()
         file_path = f"Resources_and_Skills/resources/{safe_title}.md"
-        content = f"""# 📎 {title}
+        content = f"""# 💎 {title}
 - Type: {resource_type}
 - Link: {link}
 """
