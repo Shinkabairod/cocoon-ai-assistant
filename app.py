@@ -192,3 +192,23 @@ def list_user_files(user_id: str):
             rel_path = os.path.relpath(os.path.join(root, name), path)
             files.append(rel_path)
     return {"user_id": user_id, "files": files}
+
+from fastapi import Query
+
+@app.get("/debug/list_user_files")
+def list_user_files(user_id: str = Query(...)):
+    path = os.path.join("vaults", f"user_{user_id}")
+    if not os.path.exists(path):
+        return {"error": f"User path {path} not found"}
+
+    files = []
+    for root, _, filenames in os.walk(path):
+        for name in filenames:
+            rel_path = os.path.relpath(os.path.join(root, name), path)
+            files.append(rel_path)
+    
+    return {
+        "user_id": user_id,
+        "files": files,
+        "message": f"{len(files)} files found."
+    }

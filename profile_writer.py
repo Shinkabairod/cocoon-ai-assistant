@@ -6,11 +6,10 @@ def write_file(user_path, relative_path, content):
     with open(full_path, "w", encoding="utf-8") as f:
         f.write(content.strip() + "\n")
 
-import tempfile
-
 def write_profile_to_obsidian(user_id: str, data: dict):
-    base_path = os.path.join(tempfile.gettempdir(), "vaults", f"user_{user_id}")
+    base_path = os.path.join("vaults", f"user_{user_id}")
     os.makedirs(base_path, exist_ok=True)
+    print(f"[WRITE] Creating Obsidian structure for user: {user_id}")
 
     # === Profile Folder ===
     write_file(base_path, "Profile/user_profile.md", f"""
