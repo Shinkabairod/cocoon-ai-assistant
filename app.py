@@ -1,79 +1,90 @@
-# app.py - Version corrigée et simplifiée pour commencer
+# app.py - Version optimisée pour Hugging Face Spaces
 
-# === IMPORTS ===
 import os
 import json
 import tempfile
 from datetime import datetime
 from typing import List, Dict, Optional
 
-# === CORRECTION : Import correct de dotenv ===
-from dotenv import load_dotenv
-load_dotenv()
+# === GESTION ROBUSTE DES IMPORTS ===
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    DOTENV_AVAILABLE = True
+except ImportError:
+    print("⚠️ python-dotenv non disponible, utilisation des variables d'environnement système")
+    DOTENV_AVAILABLE = False
 
-# === Imports FastAPI ===
-from fastapi import FastAPI, UploadFile, File, Form
+# === Imports FastAPI (obligatoires) ===
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
-# === Imports pour l'IA (avec gestion d'erreurs) ===
+# === Imports IA (optionnels) ===
+OPENAI_AVAILABLE = False
+SUPABASE_AVAILABLE = False
+SENTENCE_TRANSFORMERS_AVAILABLE = False
+
 try:
     import openai
-    from sentence_transformers import SentenceTransformer
+    OPENAI_AVAILABLE = True
+    print("✅ OpenAI disponible")
+except ImportError:
+    print("⚠️ OpenAI non disponible")
+
+try:
     from supabase import create_client
-    AI_AVAILABLE = True
-except ImportError as e:
-    print(f"⚠️ Modules IA non disponibles: {e}")
-    AI_AVAILABLE = False
+    SUPABASE_AVAILABLE = True
+    print("✅ Supabase disponible")
+except ImportError:
+    print("⚠️ Supabase non disponible")
+
+try:
+    from sentence_transformers import SentenceTransformer
+    SENTENCE_TRANSFORMERS_AVAILABLE = True
+    print("✅ SentenceTransformers disponible")
+except ImportError:
+    print("⚠️ SentenceTransformers non disponible")
 
 # === CONFIGURATION ===
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-# Vérifications avec messages clairs
-if not SUPABASE_URL:
-    print("❌ SUPABASE_URL manquant dans les variables d'environnement")
-if not SUPABASE_KEY:
-    print("❌ SUPABASE_KEY manquant dans les variables d'environnement")
-if not OPENAI_API_KEY:
-    print("❌ OPENAI_API_KEY manquant dans les variables d'environnement")
+# === INITIALISATION APP ===
+app = FastAPI(
+    title="Cocoon AI Assistant",
+    description="API pour assistant créateur de contenu",
+    version="1.0.0"
+)
 
-# === INITIALISATION SERVICES (avec protection) ===
-app = FastAPI(title="Cocoon AI Assistant", description="API pour assistant créateur")
+# CORS pour permettre les requêtes depuis votre frontend
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # En production, limitez aux domaines autorisés
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
-# Initialisation conditionnelle
+# === INITIALISATION SERVICES ===
 supabase_client = None
 model = None
 
-if AI_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
+if SUPABASE_AVAILABLE and SUPABASE_URL and SUPABASE_KEY:
     try:
         supabase_client = create_client(SUPABASE_URL, SUPABASE_KEY)
         print("✅ Supabase connecté")
     except Exception as e:
-        print(f"❌ Erreur connexion Supabase: {e}")
+        print(f"❌ Erreur Supabase: {e}")
 
-if AI_AVAILABLE and OPENAI_API_KEY:
+if OPENAI_AVAILABLE and OPENAI_API_KEY:
     try:
         openai.api_key = OPENAI_API_KEY
         print("✅ OpenAI configuré")
     except Exception as e:
-        print(f"❌ Erreur configuration OpenAI: {e}")
-
-# Modèle SentenceTransformer (optionnel au démarrage)
-def load_ai_model():
-    global model
-    if not model and AI_AVAILABLE:
-        try:
-            cache_dir = os.path.join(tempfile.gettempdir(), "hf_cache")
-            os.makedirs(cache_dir, exist_ok=True)
-            model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
-            print("✅ Modèle IA chargé")
-            return model
-        except Exception as e:
-            print(f"❌ Erreur chargement modèle: {e}")
-            return None
-    return model
+        print(f"❌ Erreur OpenAI: {e}")
 
 # === FONCTIONS UTILITAIRES ===
 def get_user_vault_path(user_id: str) -> str:
@@ -83,15 +94,92 @@ def get_user_vault_path(user_id: str) -> str:
     os.makedirs(user_path, exist_ok=True)
     return user_path
 
-def safe_json_response(data, status_code=200):
-    """Retourner une réponse JSON sécurisée"""
-    try:
-        return JSONResponse(content=data, status_code=status_code)
-    except Exception as e:
-        return JSONResponse(
-            content={"error": f"Erreur de sérialisation: {str(e)}"}, 
-            status_code=500
-        )
+def load_ai_model():
+    """Charger le modèle IA de manière paresseuse"""
+    global model
+    if model is None and SENTENCE_TRANSFORMERS_AVAILABLE:
+        try:
+            cache_dir = os.path.join(tempfile.gettempdir(), "hf_cache")
+            os.makedirs(cache_dir, exist_ok=True)
+            model = SentenceTransformer("all-MiniLM-L6-v2", cache_folder=cache_dir)
+            print("✅ Modèle IA chargé")
+        except Exception as e:
+            print(f"⚠️ Erreur chargement modèle: {e}")
+    return model
+
+def create_simple_obsidian_structure(user_id: str, profile_data: dict):
+    """Créer une structure Obsidian simple"""
+    vault_path = get_user_vault_path(user_id)
+    
+    # Créer les dossiers principaux
+    folders = [
+        "Profile",
+        "Content_Strategy", 
+        "Goals_and_Metrics",
+        "Resources_and_Skills",
+        "AI_Context"
+    ]
+    
+    for folder in folders:
+        os.makedirs(os.path.join(vault_path, folder), exist_ok=True)
+    
+    # Créer le profil principal
+    profile_content = f"""# 👤 Mon Profil Créateur
+
+## 🎯 Informations de base
+- **Expérience**: {profile_data.get('experienceLevel', 'Non défini')}
+- **Objectif**: {profile_data.get('contentGoal', 'Non défini')}
+- **Niche**: {profile_data.get('niche', 'Non défini')}
+- **Localisation**: {profile_data.get('city', '')}, {profile_data.get('country', '')}
+
+## 🏢 Business
+- **Type**: {profile_data.get('businessType', 'Non défini')}
+- **Description**: {profile_data.get('businessDescription', 'Non défini')}
+
+## 🎯 Stratégie
+- **Plateformes**: {', '.join(profile_data.get('platforms', []))}
+- **Types de contenu**: {', '.join(profile_data.get('contentTypes', []))}
+- **Audience**: {profile_data.get('targetGeneration', 'Non défini')}
+
+## ⏰ Ressources
+- **Temps disponible**: {profile_data.get('timeAvailable', 'Non défini')}
+- **Ressources**: {profile_data.get('resources', 'Non défini')}
+- **Défis**: {profile_data.get('mainChallenges', 'Non défini')}
+
+## 💰 Monétisation
+- **Intention**: {profile_data.get('monetizationIntent', 'Non défini')}
+
+---
+**Créé le**: {datetime.now().strftime('%Y-%m-%d à %H:%M')}
+"""
+    
+    with open(os.path.join(vault_path, "Profile", "user_profile.md"), "w", encoding="utf-8") as f:
+        f.write(profile_content)
+    
+    # Créer un dashboard simple
+    dashboard_content = f"""# 🏠 Mon Dashboard Créateur
+
+## 📊 Vue d'ensemble
+- **Profil**: {profile_data.get('experienceLevel', 'Non défini')}
+- **Objectif**: {profile_data.get('contentGoal', 'Non défini')}
+- **Niche**: {profile_data.get('niche', 'Non défini')}
+
+## 🎯 Navigation rapide
+- [[Profile/user_profile|👤 Mon Profil]]
+- [[Content_Strategy/content_goals|🎯 Mes Objectifs]]
+- [[Goals_and_Metrics/success_metrics|📊 Mes Métriques]]
+
+## 📈 Plateformes actives
+{chr(10).join([f'- **{platform}**' for platform in profile_data.get('platforms', [])])}
+
+---
+**Dernière mise à jour**: {datetime.now().strftime('%Y-%m-%d à %H:%M')}
+"""
+    
+    with open(os.path.join(vault_path, "Dashboard.md"), "w", encoding="utf-8") as f:
+        f.write(dashboard_content)
+    
+    return vault_path
 
 # === MODÈLES DE DONNÉES ===
 class ProfileRequest(BaseModel):
@@ -110,14 +198,20 @@ class NoteRequest(BaseModel):
 # === ROUTES DE BASE ===
 @app.get("/")
 def root():
-    """Page d'accueil de l'API"""
+    """Page d'accueil avec statut des services"""
     return {
         "message": "🚀 Cocoon AI Assistant API",
         "status": "En ligne",
+        "version": "1.0.0",
         "services": {
             "supabase": "✅" if supabase_client else "❌",
-            "openai": "✅" if OPENAI_API_KEY else "❌",
-            "ai_model": "✅" if model else "⏳ Non chargé"
+            "openai": "✅" if OPENAI_AVAILABLE and OPENAI_API_KEY else "❌",
+            "ai_model": "✅" if model else "⏳ Non chargé",
+            "sentence_transformers": "✅" if SENTENCE_TRANSFORMERS_AVAILABLE else "❌"
+        },
+        "environment": {
+            "platform": "Hugging Face Spaces",
+            "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}"
         },
         "timestamp": datetime.now().isoformat()
     }
@@ -129,155 +223,94 @@ def ping():
 
 @app.get("/health")
 def health_check():
-    """Vérification de santé détaillée"""
+    """Vérification de santé complète"""
     health_status = {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "services": {
             "api": "✅ Running",
-            "supabase": "✅ Connected" if supabase_client else "❌ Not connected",
-            "openai": "✅ Configured" if OPENAI_API_KEY else "❌ Not configured",
-            "ai_model": "✅ Loaded" if model else "⏳ Not loaded"
+            "supabase": "✅ Connected" if supabase_client else "❌ Not available",
+            "openai": "✅ Available" if OPENAI_AVAILABLE and OPENAI_API_KEY else "❌ Not available",
+            "ai_model": "✅ Ready" if model else "⏳ Not loaded"
         },
-        "environment": {
-            "python_version": f"{os.sys.version_info.major}.{os.sys.version_info.minor}",
-            "temp_dir": tempfile.gettempdir()
+        "dependencies": {
+            "supabase_lib": "✅" if SUPABASE_AVAILABLE else "❌",
+            "openai_lib": "✅" if OPENAI_AVAILABLE else "❌", 
+            "transformers_lib": "✅" if SENTENCE_TRANSFORMERS_AVAILABLE else "❌"
         }
     }
     
     # Déterminer le statut global
-    if not supabase_client or not OPENAI_API_KEY:
+    critical_services = [OPENAI_AVAILABLE, SUPABASE_AVAILABLE]
+    if not any(critical_services):
         health_status["status"] = "degraded"
+        health_status["message"] = "Services IA non disponibles"
     
     return health_status
 
 # === ROUTES PRINCIPALES ===
 @app.post("/profile")
 async def save_profile(req: ProfileRequest):
-    """Sauvegarder le profil utilisateur et créer le vault Obsidian"""
+    """Sauvegarder le profil utilisateur"""
     try:
-        print(f"📝 Sauvegarde profil pour utilisateur: {req.user_id}")
+        print(f"📝 Sauvegarde profil pour: {req.user_id}")
         
-        # Créer le dossier utilisateur
-        vault_path = get_user_vault_path(req.user_id)
+        # Créer la structure Obsidian
+        vault_path = create_simple_obsidian_structure(req.user_id, req.profile_data)
         
-        # Sauvegarder les données brutes en JSON
-        profile_json_path = os.path.join(vault_path, "user_profile.json")
-        with open(profile_json_path, "w", encoding="utf-8") as f:
+        # Sauvegarder les données brutes
+        with open(os.path.join(vault_path, "user_profile.json"), "w", encoding="utf-8") as f:
             json.dump(req.profile_data, f, indent=2, ensure_ascii=False)
         
-        # Créer une version markdown simple du profil
-        profile_md_path = os.path.join(vault_path, "Profile")
-        os.makedirs(profile_md_path, exist_ok=True)
-        
-        profile_content = f"""# 👤 Profil Utilisateur
-
-## Informations de base
-- **Expérience**: {req.profile_data.get('experienceLevel', 'Non défini')}
-- **Objectif**: {req.profile_data.get('contentGoal', 'Non défini')}
-- **Niche**: {req.profile_data.get('niche', 'Non défini')}
-- **Localisation**: {req.profile_data.get('city', '')}, {req.profile_data.get('country', '')}
-
-## Business
-- **Type**: {req.profile_data.get('businessType', 'Non défini')}
-- **Description**: {req.profile_data.get('businessDescription', 'Non défini')}
-
-## Stratégie
-- **Plateformes**: {', '.join(req.profile_data.get('platforms', []))}
-- **Types de contenu**: {', '.join(req.profile_data.get('contentTypes', []))}
-- **Audience**: {req.profile_data.get('targetGeneration', 'Non défini')}
-
-## Ressources
-- **Temps disponible**: {req.profile_data.get('timeAvailable', 'Non défini')}
-- **Ressources**: {req.profile_data.get('resources', 'Non défini')}
-- **Défis**: {req.profile_data.get('mainChallenges', 'Non défini')}
-
----
-Créé le: {datetime.now().strftime('%Y-%m-%d à %H:%M')}
-"""
-        
-        with open(os.path.join(profile_md_path, "user_profile.md"), "w", encoding="utf-8") as f:
-            f.write(profile_content)
-        
         # Synchroniser avec Supabase si disponible
-        files_created = 2
+        sync_status = "disabled"
         if supabase_client:
             try:
                 supabase_client.table("vault_files").upsert({
                     "user_id": req.user_id,
                     "path": "Profile/user_profile.md",
-                    "content": profile_content,
+                    "content": "Profil créé",
                     "updated_at": datetime.now().isoformat()
                 }).execute()
-                print("✅ Profil synchronisé avec Supabase")
+                sync_status = "synced"
             except Exception as e:
                 print(f"⚠️ Erreur sync Supabase: {e}")
+                sync_status = "failed"
         
         return {
             "status": "✅ Profil sauvegardé avec succès",
-            "message": "Votre profil a été créé dans votre vault Obsidian",
+            "message": "Votre vault Obsidian a été créé",
             "vault_path": vault_path,
-            "files_created": files_created,
+            "sync_status": sync_status,
+            "files_created": 3,
             "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
-        print(f"❌ Erreur sauvegarde profil: {e}")
-        return JSONResponse(
-            status_code=500, 
-            content={
-                "error": f"Erreur lors de la sauvegarde: {str(e)}",
-                "user_id": req.user_id
-            }
-        )
-
-@app.post("/note")
-async def save_note(req: NoteRequest):
-    """Sauvegarder une note simple"""
-    try:
-        vault_path = get_user_vault_path(req.user_id)
-        
-        # Créer le fichier note
-        note_content = f"""# {req.title}
-
-{req.content}
-
----
-Créé le: {datetime.now().strftime('%Y-%m-%d à %H:%M')}
-"""
-        
-        note_path = os.path.join(vault_path, f"{req.title.replace(' ', '_')}.md")
-        with open(note_path, "w", encoding="utf-8") as f:
-            f.write(note_content)
-        
-        return {
-            "status": "✅ Note sauvegardée",
-            "message": f"Note '{req.title}' créée avec succès"
-        }
-        
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        print(f"❌ Erreur sauvegarde: {e}")
+        raise HTTPException(status_code=500, detail=f"Erreur sauvegarde: {str(e)}")
 
 @app.post("/ask")
-async def ask_simple(req: AskRequest):
-    """Version simplifiée de l'assistant IA"""
+async def ask_ai(req: AskRequest):
+    """Poser une question à l'IA"""
     try:
-        if not OPENAI_API_KEY:
+        if not OPENAI_AVAILABLE or not OPENAI_API_KEY:
             return {
-                "answer": "❌ Service IA non configuré. Veuillez configurer OPENAI_API_KEY.",
-                "status": "error"
+                "answer": "❌ Service IA non disponible. OpenAI n'est pas configuré.",
+                "status": "error",
+                "suggestion": "Configurez OPENAI_API_KEY dans les variables d'environnement"
             }
         
-        # Charger le modèle si nécessaire
+        # Charger le modèle si possible
         current_model = load_ai_model()
         
         # Réponse simple avec OpenAI
         response = openai.chat.completions.create(
-            model="gpt-4",
+            model="gpt-4o-mini",  # Modèle moins cher
             messages=[
                 {
                     "role": "system", 
-                    "content": "Tu es un assistant pour créateurs de contenu. Réponds en français de manière utile et concise."
+                    "content": "Tu es un assistant expert pour créateurs de contenu. Réponds en français de manière utile, concise et actionnable."
                 },
                 {"role": "user", "content": req.question}
             ],
@@ -288,18 +321,47 @@ async def ask_simple(req: AskRequest):
         return {
             "answer": response.choices[0].message.content,
             "status": "✅ Réponse générée",
-            "model_loaded": current_model is not None
+            "model_used": "gpt-4o-mini",
+            "has_context": current_model is not None,
+            "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
         print(f"❌ Erreur IA: {e}")
-        return JSONResponse(
-            status_code=500, 
-            content={
-                "error": f"Erreur lors de la génération: {str(e)}",
-                "answer": "Désolé, je ne peux pas répondre pour le moment."
-            }
-        )
+        return {
+            "answer": "Désolé, je ne peux pas répondre pour le moment. Erreur technique.",
+            "status": "error",
+            "error_details": str(e)
+        }
+
+@app.post("/note")
+async def save_note(req: NoteRequest):
+    """Sauvegarder une note"""
+    try:
+        vault_path = get_user_vault_path(req.user_id)
+        
+        note_content = f"""# {req.title}
+
+{req.content}
+
+---
+**Créé le**: {datetime.now().strftime('%Y-%m-%d à %H:%M')}
+"""
+        
+        safe_filename = req.title.replace(" ", "_").replace("/", "_")
+        note_path = os.path.join(vault_path, f"{safe_filename}.md")
+        
+        with open(note_path, "w", encoding="utf-8") as f:
+            f.write(note_content)
+        
+        return {
+            "status": "✅ Note sauvegardée",
+            "filename": f"{safe_filename}.md",
+            "message": f"Note '{req.title}' créée avec succès"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/user/{user_id}/status")
 async def get_user_status(user_id: str):
@@ -308,52 +370,130 @@ async def get_user_status(user_id: str):
         vault_path = get_user_vault_path(user_id)
         
         # Compter les fichiers
-        file_count = 0
-        files_list = []
+        total_files = 0
+        markdown_files = []
         
         if os.path.exists(vault_path):
             for root, dirs, files in os.walk(vault_path):
                 for file in files:
-                    if file.endswith('.md') or file.endswith('.json'):
-                        file_count += 1
-                        rel_path = os.path.relpath(os.path.join(root, file), vault_path)
-                        files_list.append(rel_path)
+                    if file.endswith(('.md', '.json')):
+                        total_files += 1
+                        if file.endswith('.md'):
+                            rel_path = os.path.relpath(os.path.join(root, file), vault_path)
+                            markdown_files.append(rel_path)
         
-        # Vérifier si le profil existe
-        profile_exists = os.path.exists(os.path.join(vault_path, "Profile/user_profile.md"))
+        profile_exists = os.path.exists(os.path.join(vault_path, "Profile", "user_profile.md"))
         
         return {
             "user_id": user_id,
-            "vault_path": vault_path,
+            "vault_exists": os.path.exists(vault_path),
             "profile_exists": profile_exists,
-            "total_files": file_count,
-            "files": files_list[:10],  # Premières 10 files
-            "status": "✅ Statut récupéré",
+            "total_files": total_files,
+            "markdown_files": markdown_files[:10],  # Limiter l'affichage
+            "vault_path": vault_path,
+            "status": "✅ Utilisateur trouvé" if profile_exists else "⚠️ Profil non créé",
             "timestamp": datetime.now().isoformat()
         }
         
     except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        raise HTTPException(status_code=500, detail=str(e))
 
-# === GESTION DES ERREURS GLOBALES ===
+@app.get("/user/{user_id}/vault_structure")
+async def get_vault_structure(user_id: str):
+    """Récupérer la structure du vault utilisateur"""
+    try:
+        vault_path = get_user_vault_path(user_id)
+        
+        if not os.path.exists(vault_path):
+            return {
+                "error": "Vault non trouvé",
+                "message": "Créez d'abord votre profil",
+                "user_id": user_id
+            }
+        
+        structure = {}
+        for root, dirs, files in os.walk(vault_path):
+            rel_path = os.path.relpath(root, vault_path)
+            if rel_path == ".":
+                rel_path = "root"
+            
+            structure[rel_path] = {
+                "folders": dirs,
+                "markdown_files": [f for f in files if f.endswith('.md')],
+                "other_files": [f for f in files if not f.endswith('.md')],
+                "total_files": len(files)
+            }
+        
+        return {
+            "user_id": user_id,
+            "structure": structure,
+            "total_folders": len(structure),
+            "vault_path": vault_path,
+            "status": "✅ Structure récupérée"
+        }
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# === ROUTES DE TEST ET DEBUG ===
+@app.get("/test")
+async def test_all_services():
+    """Tester tous les services"""
+    tests = {
+        "timestamp": datetime.now().isoformat(),
+        "results": {}
+    }
+    
+    # Test création vault
+    try:
+        test_path = get_user_vault_path("test_user")
+        tests["results"]["vault_creation"] = "✅ OK" if os.path.exists(test_path) else "❌ Failed"
+    except Exception as e:
+        tests["results"]["vault_creation"] = f"❌ Error: {e}"
+    
+    # Test OpenAI
+    if OPENAI_AVAILABLE and OPENAI_API_KEY:
+        try:
+            response = openai.chat.completions.create(
+                model="gpt-4o-mini",
+                messages=[{"role": "user", "content": "Test"}],
+                max_tokens=5
+            )
+            tests["results"]["openai"] = "✅ OK"
+        except Exception as e:
+            tests["results"]["openai"] = f"❌ Error: {e}"
+    else:
+        tests["results"]["openai"] = "❌ Not configured"
+    
+    # Test Supabase
+    if supabase_client:
+        try:
+            # Test simple de connexion
+            result = supabase_client.table("vault_files").select("id").limit(1).execute()
+            tests["results"]["supabase"] = "✅ OK"
+        except Exception as e:
+            tests["results"]["supabase"] = f"❌ Error: {e}"
+    else:
+        tests["results"]["supabase"] = "❌ Not configured"
+    
+    return tests
+
+# === GESTION GLOBALE DES ERREURS ===
 @app.exception_handler(Exception)
 async def global_exception_handler(request, exc):
-    """Gestionnaire d'erreurs global"""
     print(f"❌ Erreur globale: {exc}")
     return JSONResponse(
         status_code=500,
         content={
             "error": "Erreur interne du serveur",
             "message": str(exc),
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "path": str(request.url)
         }
     )
 
 # === DÉMARRAGE ===
 if __name__ == "__main__":
-    print("🚀 Démarrage de Cocoon AI Assistant...")
-    print(f"📖 Documentation: http://localhost:8000/docs")
-    print(f"❤️ Health check: http://localhost:8000/health")
-    
+    print("🚀 Démarrage Cocoon AI Assistant pour Hugging Face Spaces...")
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=7860)  # Port 7860 pour HF Spaces
