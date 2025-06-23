@@ -202,4 +202,26 @@ async def add_resource(
     try:
         safe_title = title.replace(" ", "_").lower()
         file_path = f"Resources_and_Skills/resources/{safe_title}.md"
-        content = f"# 
+        content = f"""# 📎 {title}
+- Type: {resource_type}
+- Link: {link}
+"""
+
+        vault_path = get_user_vault_path(user_id)
+        full_path = os.path.join(vault_path, file_path)
+        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+        # Write to file
+        with open(full_path, "w", encoding="utf-8") as f:
+            f.write(content.strip())
+
+        # Sync with Supabase
+        supabase_client.table("vault_files").upsert({
+            "user_id": user_id,
+            "path": file_path,
+            "content": content.strip()
+        }).execute()
+
+        return {"status": "Resource saved.", "file": file_path}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})
