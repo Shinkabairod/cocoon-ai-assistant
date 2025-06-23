@@ -9,7 +9,7 @@ def write_file(user_path, relative_path, content):
     return full_path
 
 def write_profile_to_obsidian(user_id: str, data: dict, supabase_client=None):
-    base_path = os.path.join("/data", "vaults", f"user_{user_id}")
+    base_path = os.path.join(tempfile.gettempdir(), "vaults", f"user_{user_id}")
     os.makedirs(base_path, exist_ok=True)
 
     files = {

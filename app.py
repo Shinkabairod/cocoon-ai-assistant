@@ -34,8 +34,8 @@ app = FastAPI()
 
 # === Vault Path Helper ===
 def get_user_vault_path(user_id: str) -> str:
-    base_path = os.path.join("/data", "vaults", f"user_{user_id}")
-    os.makedirs(base_path, exist_ok=True)
+    base_path = os.path.join(tempfile.gettempdir(), "vaults", f"user_{user_id}")
+os.makedirs(base_path, exist_ok=True)
     return base_path
 
 # === Request Models ===
