@@ -5,6 +5,7 @@ import tempfile
 import openai
 from dotenv import load_dotenv
 load_dotenv()
+
 from fastapi import FastAPI, UploadFile, File, Query, Form
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
@@ -66,6 +67,14 @@ def root():
 @app.get("/ping")
 def ping():
     return {"pong": "ok"}
+
+@app.get("/secrets")
+def show_secrets():
+    return {
+        "SUPABASE_URL": os.getenv("SUPABASE_URL"),
+        "SUPABASE_KEY": os.getenv("SUPABASE_KEY"),
+        "OPENAI_API_KEY": os.getenv("OPENAI_API_KEY")
+    }
 
 @app.post("/test")
 async def test_connection():
@@ -221,11 +230,9 @@ async def add_resource(
         full_path = os.path.join(vault_path, file_path)
         os.makedirs(os.path.dirname(full_path), exist_ok=True)
 
-        # Write to file
         with open(full_path, "w", encoding="utf-8") as f:
             f.write(content.strip())
 
-        # Sync with Supabase
         supabase_client.table("vault_files").upsert({
             "user_id": user_id,
             "path": file_path,
